@@ -53,9 +53,9 @@ A interface e o serviço partilham a pasta `models_storage/`. O botão **"Public
 
 ## ☁️ Link público (Streamlit Community Cloud)
 
-Este repositório é privado. O Streamlit Cloud aceita repositórios privados, e o link da app pode ser público.
+Repositório: [github.com/LuisC94/repo_stock_agent](https://github.com/LuisC94/repo_stock_agent).
 
-1. Entrar em [share.streamlit.io](https://share.streamlit.io) com a conta GitHub. Se pedir, autorizar o acesso a repositórios privados.
+1. Entrar em [share.streamlit.io](https://share.streamlit.io) com a conta GitHub. Se for a primeira vez, autorizar o acesso ao GitHub.
 2. **Create app** → **Deploy a public app from GitHub**:
    - Repository: este repositório
    - Branch: `main`
