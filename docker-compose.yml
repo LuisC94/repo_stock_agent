@@ -1,0 +1,25 @@
+services:
+  stock-agent-ui:
+    build: .
+    container_name: stock-agent-ui
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./models_storage:/app/models_storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+
+  stock-agent-service:
+    build: .
+    container_name: stock-agent-service
+    command: ["python", "service/main.py"]
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+    volumes:
+      - ./models_storage:/app/models_storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8005/health"]

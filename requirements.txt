@@ -1,0 +1,14 @@
+# PyTorch só CPU (no Linux / Streamlit Cloud o torch por defeito traz CUDA, ~2.5 GB, e o deploy falha)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+streamlit>=1.50.0
+pandas>=2.0.0
+numpy>=1.24.0
+numba>=0.58.0
+openpyxl>=3.1.0
+plotly>=5.18.0
+# fastapi/uvicorn: importados pelo motor Lifecycle (lc_v0_2_0.py) e pelo web service
+fastapi>=0.110.0
+uvicorn>=0.27.0
+python-multipart>=0.0.9
+pydantic>=2.0.0
