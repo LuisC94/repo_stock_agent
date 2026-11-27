@@ -1,7 +1,7 @@
 """
 Stock Agent - Eureka | Interface Streamlit
 
-- Dados: upload do Excel (ou geração de dados sintéticos) e exploração.
+- Dados: geração de dados sintéticos para teste e exploração.
 - Treinar: treino PPO (com pré-treino por imitação) por perfil x cultura x tipo de agente; download do modelo ZIP.
 - Simulação & Inferência: corre uma temporada com o agente e compara com FEFO + Procura e Venda Imediata;
   inspeção das decisões dia a dia com probabilidades e explicação; exemplo de pedido/resposta do Web Service.
@@ -17,7 +17,7 @@ import streamlit as st
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from stock_agent.schema import read_excel, profiles_and_cultures, to_excel_bytes, readme_frame, SHEETS, DataValidationError
+from stock_agent.schema import normalize, profiles_and_cultures
 from stock_agent.synthetic import generate, CULTURES
 from stock_agent.simulator import SimParams
 from stock_agent.training import TrainConfig, train_generator
@@ -73,7 +73,7 @@ st.markdown(f'<p class="subtitle">{T("Agente de IA que decide que lotes ou armaz
             unsafe_allow_html=True)
 
 for key, default in [("data", None), ("data_name", None), ("train_log", ""), ("trained_zip", None), ("trained_config", None),
-                     ("trained_history", None), ("sim_results", None), ("sim_key", None), ("synthetic_bytes", None)]:
+                     ("trained_history", None), ("sim_results", None), ("sim_key", None)]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -95,43 +95,28 @@ def kg(x):
 # SIDEBAR
 # =====================================================================================================
 with st.sidebar:
-    st.markdown(f"### 📥 {T('Dados', 'Data')}")
-    up = st.file_uploader(T("Excel com Armazéns, Lotes, Leituras e Mercado", "Excel with Armazens, Lotes, Leituras and Mercado sheets"),
-                          type=["xlsx"])
-    if up is not None and st.session_state.data_name != up.name:
-        try:
-            st.session_state.data = read_excel(up.getvalue())
-            st.session_state.data_name = up.name
-            st.session_state.sim_results = None
-        except (DataValidationError, ValueError) as e:
-            st.error(str(e))
-
-    with st.expander(T("🧪 Gerar dados sintéticos", "🧪 Generate synthetic data"), expanded=st.session_state.data is None):
-        g_perfil = st.text_input(T("Perfil (produtor)", "Profile (producer)"), "Produtor_Demo")
-        g_frutas = st.multiselect(T("Culturas", "Crops"), list(CULTURES), default=["kiwi_hayward", "pear"],
-                                  format_func=lambda k: CULTURES[k]["cultura"])
-        c1, c2 = st.columns(2)
-        g_wh = c1.number_input(T("Armazéns", "Warehouses"), 1, 20, 6)
-        g_ca = c2.slider(T("% com AC", "% with CA"), 0, 100, 50, help=T("Atmosfera controlada", "Controlled atmosphere"))
-        c1, c2 = st.columns(2)
-        g_seasons = c1.number_input(T("Temporadas", "Seasons"), 2, 12, 5)
-        g_lots = c2.number_input(T("Lotes/temporada", "Lots/season"), 4, 80, 24)
-        g_seed = st.number_input("Seed", 0, 99999, 42)
-        if st.button(T("Gerar", "Generate"), width="stretch", disabled=not g_frutas):
-            raw = generate(perfil=g_perfil, fruit_keys=g_frutas, n_warehouses=int(g_wh), frac_controlled=g_ca / 100.0,
-                           n_seasons=int(g_seasons), lots_per_season=int(g_lots), seed=int(g_seed))
-            b = to_excel_bytes(raw, readme=readme_frame())
-            st.session_state.synthetic_bytes = b
-            st.session_state.data = read_excel(b)
-            st.session_state.data_name = "dados_sinteticos.xlsx"
-            st.session_state.sim_results = None
-        if st.session_state.synthetic_bytes is not None:
-            st.download_button(T("📥 Descarregar Excel gerado", "📥 Download generated Excel"), st.session_state.synthetic_bytes,
-                               file_name="dados_sinteticos_stock_agent.xlsx", width="stretch")
+    st.markdown(f"### 🧪 {T('Dados sintéticos', 'Synthetic data')}")
+    g_perfil = st.text_input(T("Perfil (produtor)", "Profile (producer)"), "Produtor_Demo")
+    g_frutas = st.multiselect(T("Culturas", "Crops"), list(CULTURES), default=["kiwi_hayward", "pear"],
+                              format_func=lambda k: CULTURES[k]["cultura"])
+    c1, c2 = st.columns(2)
+    g_wh = c1.number_input(T("Armazéns", "Warehouses"), 1, 20, 6)
+    g_ca = c2.slider(T("% com AC", "% with CA"), 0, 100, 50, help=T("Atmosfera controlada", "Controlled atmosphere"))
+    c1, c2 = st.columns(2)
+    g_seasons = c1.number_input(T("Temporadas", "Seasons"), 2, 12, 5)
+    g_lots = c2.number_input(T("Lotes/temporada", "Lots/season"), 4, 80, 24)
+    g_seed = st.number_input("Seed", 0, 99999, 42)
+    if st.button(T("Gerar dados", "Generate data"), width="stretch", type="primary", disabled=not g_frutas):
+        raw = generate(perfil=g_perfil, fruit_keys=g_frutas, n_warehouses=int(g_wh), frac_controlled=g_ca / 100.0,
+                       n_seasons=int(g_seasons), lots_per_season=int(g_lots), seed=int(g_seed))
+        st.session_state.data = normalize(raw)
+        st.session_state.data_name = T(f"{g_perfil} · {len(g_frutas)} cultura(s) · {int(g_seasons)} temporadas",
+                                       f"{g_perfil} · {len(g_frutas)} crop(s) · {int(g_seasons)} seasons")
+        st.session_state.sim_results = None
 
     data = st.session_state.data
     if data is not None:
-        st.success(T(f"Dados: {st.session_state.data_name}", f"Data: {st.session_state.data_name}"))
+        st.success(T(f"Dados gerados: {st.session_state.data_name}", f"Data generated: {st.session_state.data_name}"))
         pc = profiles_and_cultures(data)
         st.markdown("---")
         st.markdown(f"### 🎯 {T('Modelo', 'Model')}")
@@ -143,14 +128,9 @@ with st.sidebar:
         st.caption(T("Lotes: todos os dias escolhe 0, 1 ou vários lotes para colocar à venda.\n\nArmazéns: de 7 em 7 dias escolhe no máximo 1 armazém para abrir (todo o stock vai para venda).",
                      "Lots: every day picks 0, 1 or several lots to put on sale.\n\nWarehouses: every 7 days opens at most 1 warehouse (all its stock goes on sale)."))
 
-    st.markdown("---")
-    with st.expander(T("ℹ️ Estrutura do Excel", "ℹ️ Excel structure")):
-        for sheet, cols in SHEETS.items():
-            st.markdown(f"**{sheet}**: " + ", ".join(f"`{c}`" for c in cols))
-
 if data is None:
-    st.info(T("👋 Carregue um Excel na barra lateral ou gere dados sintéticos para começar.",
-              "👋 Upload an Excel file in the sidebar or generate synthetic data to start."))
+    st.info(T("👋 Escolha os parâmetros na barra lateral e clique em **Gerar dados** para começar.",
+              "👋 Choose the parameters in the sidebar and click **Generate data** to start."))
     st.stop()
 
 pc_row = pc[(pc["perfil"] == perfil) & (pc["cultura"] == cultura)].iloc[0]
@@ -379,8 +359,8 @@ with tab_test:
 
     pc_m = pc[(pc["perfil"] == cfg_m["perfil"]) & (pc["cultura"] == cfg_m["cultura"])]
     if pc_m.empty:
-        st.error(T(f"Os dados carregados não têm lotes de {cfg_m['perfil']} / {cfg_m['cultura']}. Carregue um Excel com esse perfil e cultura.",
-                   f"Loaded data has no lots for {cfg_m['perfil']} / {cfg_m['cultura']}. Upload an Excel with that profile and crop."))
+        st.error(T(f"Os dados gerados não têm lotes de {cfg_m['perfil']} / {cfg_m['cultura']}. Gere dados com esse perfil e cultura.",
+                   f"Generated data has no lots for {cfg_m['perfil']} / {cfg_m['cultura']}. Generate data with that profile and crop."))
         st.stop()
     seasons_m = [int(x) for x in pc_m.iloc[0]["temporadas"]]
     default_season = [s for s in cfg_m.get("val_seasons", []) if s in seasons_m] or seasons_m[-1:]
